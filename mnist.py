@@ -21,9 +21,9 @@ class Net(nn.Module):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return F.log_softmax(x)
-batch_size = 64
-epochs = 40
 
+batch_size = 64
+epochs = 30
 
 def L3_regularizer(weights, lamb, activation, shift):
     l3_reg = Variable(torch.FloatTensor(1), requires_grad=True)
@@ -39,9 +39,7 @@ def count_zeros(parameters):
         count += len(W[W < 0.001])
     return count
 
-
 model = Net()
-model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=0.01)
 
@@ -111,7 +109,7 @@ def generate_title(lamb, activation, shift, top_accuracy):
     return 'lamb_{lamb}.act_{activation}.shift_{shift}.top_accuracy_{top_accuracy}'.format(
         lamb=lamb, activation=activation, shift=shift, top_accuracy=top_accuracy)
 
-lamb_values = [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1]
+lamb_values = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1]
 activation_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1]
 shift_values = [0.01, 0.05, 0.07, 0.1, 0.12, 0.15, 0.17, 0.20, 0.25]
 
