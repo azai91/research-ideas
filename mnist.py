@@ -41,6 +41,7 @@ def count_zeros(parameters):
 
 
 model = Net()
+model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=0.01)
 
@@ -71,8 +72,7 @@ def train(epoch, lamb, activation, shift, cuda=False):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         if cuda:
-            data.cuda()
-            target.cuda()
+            data, target = data.cuda(), target.cuda()
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
@@ -93,8 +93,7 @@ def test(cuda=False):
     correct = 0
     for data, target in test_loader:
         if cuda:
-            data.cuda()
-            target.cuda()
+            data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
         output = model(data)
         test_loss += F.nll_loss(output, target, size_average=False).data[0]
