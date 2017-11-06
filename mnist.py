@@ -67,9 +67,12 @@ test_loader = torch.utils.data.DataLoader(
     data_test,
     batch_size=batch_size, shuffle=True)
 
-def train(epoch, lamb, activation, shift):
+def train(epoch, lamb, activation, shift, cuda=False):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
+        if cuda:
+            data.cuda()
+            target.cuda()
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
@@ -84,11 +87,14 @@ def train(epoch, lamb, activation, shift):
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.data[0]))
 
-def test():
+def test(cuda=False):
     model.eval()
     test_loss = 0
     correct = 0
     for data, target in test_loader:
+        if cuda:
+            data.cuda()
+            target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
         output = model(data)
         test_loss += F.nll_loss(output, target, size_average=False).data[0]
