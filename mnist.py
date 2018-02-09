@@ -6,24 +6,73 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+# class Zelu(nn.Module):
+#     def __init__(self, lower=0.1, upper=0.1):
+#         self._lower = lower
+#         self._upper = upper
+#
+#
+#     def forward(self, input):
+#         right = F.threshold(input - self._upper, self._upper, 0)
+#         left = -F.threshold(self._lower - input , self._lower, 0)
+#         return right + left
+
+ZELU_THRESHOLD = 3
+
+def zelu(input, lower=-ZELU_THRESHOLD, upper=ZELU_THRESHOLD):
+    right = F.threshold(input - upper, upper, 0)
+    left = -F.threshold(lower - input, lower, 0)
+    return right + left
+
+
 class Net(nn.Module):
-    def __init__(self):
+    def __init__(self, use_zelu=False):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.fc1 = nn.Linear(320, 50)
         self.fc2 = nn.Linear(50, 10)
+        self._use_zelu = use_zelu
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2(x), 2))
+        if not self._use_zelu:
+            x = F.relu(F.max_pool2d(self.conv1(x), 2))
+            x = F.relu(F.max_pool2d(self.conv2(x), 2))
+        else:
+            x = zelu(F.max_pool2d(self.conv1(x), 2))
+            x = zelu(F.max_pool2d(self.conv2(x), 2))
         x = x.view(-1, 320)
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return F.log_softmax(x)
 
+
+class DNNet(nn.Module):
+    def __init__(self, use_zelu=False):
+        super(DNNet, self).__init__()
+        self.fc1 = nn.Linear(784, 100)
+        self.fc2 = nn.Linear(100, 100)
+        self.fc3 = nn.Linear(100, 10)
+        self._use_zelu = use_zelu
+
+    def forward(self, x):
+        x = x.view(-1, 784)
+        if self._use_zelu:
+            x = zelu(self.fc1(x))
+            # print('layer 1,', x.max(), x.min())
+            x = zelu(self.fc2(x))
+            # print('layer 2,', x.max(), x.min())
+        else:
+            x = F.relu(self.fc1(x))
+            # print('layer 1,', x.max(), x.min())
+            x = F.relu(self.fc2(x))
+            # print('layer 2,', x.max(), x.min())
+
+        return F.log_softmax(x)
+
 batch_size = 64
-epochs = 30
+epochs = 20
+training_set_ratio = 10
 
 def L3_regularizer(weights, lamb, activation, shift):
     l3_reg = Variable(torch.FloatTensor(1), requires_grad=True)
@@ -39,7 +88,7 @@ def count_zeros(parameters):
         count += len(W[W < 0.001])
     return count
 
-model = Net()
+model = DNNet(use_zelu=ZELU_THRESHOLD != 0)
 
 optimizer = optim.SGD(model.parameters(), lr=0.01)
 
@@ -55,7 +104,7 @@ data_test = datasets.MNIST('../data', train=True, download=True,
        transforms.Normalize((0.1307,), (0.3081,))
    ]))
 
-data_train.train_data =  data_train.train_data[:int(len(data_train)/10)]
+data_train.train_data =  data_train.train_data[:int(len(data_train)/training_set_ratio)]
 
 train_loader = torch.utils.data.DataLoader(
     data_train,
@@ -66,7 +115,9 @@ test_loader = torch.utils.data.DataLoader(
     data_test,
     batch_size=batch_size, shuffle=True)
 
-def train(epoch, lamb, activation, shift, cuda=False):
+
+
+def train(epoch, cuda=False):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         if cuda:
@@ -74,9 +125,9 @@ def train(epoch, lamb, activation, shift, cuda=False):
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
-        regularization = L3_regularizer(model.parameters(), lamb, activation, shift)
-        loss = F.nll_loss(output, target) + regularization
-        # loss = F.nll_loss(output, target)
+        # regularization = L3_regularizer(model.parameters(), lamb, activation, shift)
+        # loss = F.nll_loss(output, target) + regularization
+        loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
         zeros = count_zeros(model.parameters())
@@ -104,29 +155,28 @@ def test(cuda=False):
         test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset), zeros))
     return (correct/len(test_loader.dataset), zeros)
 
+for epoch in range(1, epochs + 1):
+    train(epoch)
+    test()
+    # test_accuracies.append(test_accuracy)
+    # zeroes_list.append(zeros)
 
-def generate_title(lamb, activation, shift, top_accuracy):
-    return 'lamb_{lamb}.act_{activation}.shift_{shift}.top_accuracy_{top_accuracy}'.format(
-        lamb=lamb, activation=activation, shift=shift, top_accuracy=top_accuracy)
+# for lamb in lamb_values:
+#     for activation in activation_values:
+#         for shift in shift_values:
+#             test_accuracies = []
+#             zeroes_list = []
+#             print('Running experiment with lamb {} activation {} shift {}'.format(lamb, activation, shift))
+#             for epoch in range(1, epochs + 1):
+#                 train(epoch, lamb=lamb, activation=activation, shift=shift)
+#                 test_accuracy, zeros = test()
+#                 test_accuracies.append(test_accuracy)
+#                 zeroes_list.append(zeros)
+#             top_accuracy = test_accuracies[-1]
+#             title = generate_title(lamb, activation, shift, top_accuracy)
+#             np.save('results/test_accuracy_' + title, np.array(test_accuracies))
+#             np.save('results/zeroes_' + title, np.array(zeroes_list))
 
-lamb_values = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1]
-activation_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1]
-shift_values = [0.01, 0.05, 0.07, 0.1, 0.12, 0.15, 0.17, 0.20, 0.25]
 
-for lamb in lamb_values:
-    for activation in activation_values:
-        for shift in shift_values:
-            test_accuracies = []
-            zeroes_list = []
-            print('Running experiment with lamb {} activation {} shift {}'.format(lamb, activation, shift))
-            for epoch in range(1, epochs + 1):
-                train(epoch, lamb=lamb, activation=activation, shift=shift)
-                test_accuracy, zeros = test()
-                test_accuracies.append(test_accuracy)
-                zeroes_list.append(zeros)
-            top_accuracy = test_accuracies[-1]
-            title = generate_title(lamb, activation, shift, top_accuracy)
-            np.save('results/test_accuracy_' + title, np.array(test_accuracies))
-            np.save('results/zeroes_' + title, np.array(zeroes_list))
 
 
