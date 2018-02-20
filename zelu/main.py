@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 from torch import nn
 from torchvision import datasets, transforms
@@ -6,23 +5,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-# class Zelu(nn.Module):
-#     def __init__(self, lower=0.1, upper=0.1):
-#         self._lower = lower
-#         self._upper = upper
-#
-#
-#     def forward(self, input):
-#         right = F.threshold(input - self._upper, self._upper, 0)
-#         left = -F.threshold(self._lower - input , self._lower, 0)
-#         return right + left
-
-ZELU_THRESHOLD = 3
-
-def zelu(input, lower=-ZELU_THRESHOLD, upper=ZELU_THRESHOLD):
-    right = F.threshold(input - upper, upper, 0)
-    left = -F.threshold(lower - input, lower, 0)
-    return right + left
+from zelu import zelu, ZELU_THRESHOLD
 
 
 class Net(nn.Module):
@@ -74,13 +57,13 @@ batch_size = 64
 epochs = 20
 training_set_ratio = 10
 
-def L3_regularizer(weights, lamb, activation, shift):
-    l3_reg = Variable(torch.FloatTensor(1), requires_grad=True)
-    for W in weights:
-        # l3_reg = l3_reg + (W.abs()).sin().clamp(min=0).norm(2)
-        l3_reg = l3_reg + lamb * (-(W.abs() - shift).pow(2) + activation).clamp(min=0).norm(2)
-        # l3_reg = l3_reg + (W.abs()[W.abs() < 1]).sin().norm()
-    return l3_reg
+# def L3_regularizer(weights, lamb, activation, shift):
+#     l3_reg = Variable(torch.FloatTensor(1), requires_grad=True)
+#     for W in weights:
+#         # l3_reg = l3_reg + (W.abs()).sin().clamp(min=0).norm(2)
+#         l3_reg = l3_reg + lamb * (-(W.abs() - shift).pow(2) + activation).clamp(min=0).norm(2)
+#         # l3_reg = l3_reg + (W.abs()[W.abs() < 1]).sin().norm()
+#     return l3_reg
 
 def count_zeros(parameters):
     count = 0
