@@ -42,9 +42,7 @@ class DNNet(nn.Module):
         x = x.view(-1, 784)
         if self._use_zelu:
             x = zelu(self.fc1(x))
-            # print('layer 1,', x.max(), x.min())
             x = zelu(self.fc2(x))
-            # print('layer 2,', x.max(), x.min())
         else:
             x = F.relu(self.fc1(x))
             # print('layer 1,', x.max(), x.min())
@@ -56,14 +54,6 @@ class DNNet(nn.Module):
 batch_size = 64
 epochs = 20
 training_set_ratio = 10
-
-# def L3_regularizer(weights, lamb, activation, shift):
-#     l3_reg = Variable(torch.FloatTensor(1), requires_grad=True)
-#     for W in weights:
-#         # l3_reg = l3_reg + (W.abs()).sin().clamp(min=0).norm(2)
-#         l3_reg = l3_reg + lamb * (-(W.abs() - shift).pow(2) + activation).clamp(min=0).norm(2)
-#         # l3_reg = l3_reg + (W.abs()[W.abs() < 1]).sin().norm()
-#     return l3_reg
 
 def count_zeros(parameters):
     count = 0
@@ -108,12 +98,9 @@ def train(epoch, cuda=False):
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
-        # regularization = L3_regularizer(model.parameters(), lamb, activation, shift)
-        # loss = F.nll_loss(output, target) + regularization
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        zeros = count_zeros(model.parameters())
         if batch_idx % 100 == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -141,24 +128,6 @@ def test(cuda=False):
 for epoch in range(1, epochs + 1):
     train(epoch)
     test()
-    # test_accuracies.append(test_accuracy)
-    # zeroes_list.append(zeros)
-
-# for lamb in lamb_values:
-#     for activation in activation_values:
-#         for shift in shift_values:
-#             test_accuracies = []
-#             zeroes_list = []
-#             print('Running experiment with lamb {} activation {} shift {}'.format(lamb, activation, shift))
-#             for epoch in range(1, epochs + 1):
-#                 train(epoch, lamb=lamb, activation=activation, shift=shift)
-#                 test_accuracy, zeros = test()
-#                 test_accuracies.append(test_accuracy)
-#                 zeroes_list.append(zeros)
-#             top_accuracy = test_accuracies[-1]
-#             title = generate_title(lamb, activation, shift, top_accuracy)
-#             np.save('results/test_accuracy_' + title, np.array(test_accuracies))
-#             np.save('results/zeroes_' + title, np.array(zeroes_list))
 
 
 
